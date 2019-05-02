@@ -5,18 +5,17 @@ int sendUpdate(int fd, int role, struct game_state params){
     char log_msg[1024];
     int ret = 1;
     struct game_state send_pars;
-    send_pars.padY = htonl(params.padY);
-    send_pars.bX = htonl(params.bX);
-    send_pars.bY = htonl(params.bY);
-    send_pars.b_dX = htonl(params.b_dX);
-    send_pars.b_dY = htonl(params.b_dY);
+    send_pars.shootY = htonl(params.shootY);
+    send_pars.bullX = htonl(params.bullX);
+    send_pars.bullY = htonl(params.bullY);
+    send_pars.dX = htonl(params.dX);
 
     if(send(fd, &send_pars, sizeof(send_pars), 0) == -1){
         sprintf(log_msg, "%s\n","could not send param update");
         w_log(log_msg, role);
         ret = -1;
     }
-    sprintf(log_msg, "sent param update-> padY:%d, bX:%d, bY:%d, b_dX:%d, b_dY:%d\n", params.padY, params.bX, params.bY, params.b_dX, params.b_dY);
+    sprintf(log_msg, "sent param update-> shootY:%d, bullX:%d, bullY:%d, dX:%d", params.shootY, params.bullX, params.bullY, params.dX);
     w_log(log_msg, role);
     return ret;
 }
@@ -159,7 +158,7 @@ struct connect_state setupConnect(const char* host, int port, int role, unsigned
             close(acc_fd);
             return state;
         }
-        sprintf(log_msg, "sent refresh rate: %d\n", refrRate);
+        sprintf(log_msg, "sent refresh rate: %lu\n", refrRate);
         w_log(log_msg, role);
 
         return state;
@@ -176,13 +175,12 @@ struct game_state receiveUpdate(int fd, int role){
     if(recv(fd, &params, sizeof(params), 0) == -1){
         sprintf(log_msg, "%s\n", "failed to receive new parameters");
         w_log(log_msg, role);
-        params.padY = -1;
+        params.shootY = -1;
     }
-    loc_params.padY = ntohl(params.padY);
-    loc_params.bX = ntohl(params.bX);
-    loc_params.bY = ntohl(params.bY);
-    loc_params.b_dX = ntohl(params.b_dX);
-    loc_params.b_dY = ntohl(params.b_dY);
+    loc_params.shootY = ntohl(params.shootY);
+    loc_params.bullX = ntohl(params.bullX);
+    loc_params.bullY = ntohl(params.bullY);
+    loc_params.dX = ntohl(params.dX);
     
     return loc_params;
 }
