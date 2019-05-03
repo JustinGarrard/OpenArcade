@@ -251,7 +251,8 @@ void *listenInput(void *args) {
     int sfd = temp.sock_fd;
     int role = temp.role;
     struct game_state params;
-        
+    char log_msg[1024];
+            
     while(!die) {
       if(!role){
         switch(getch()) {
@@ -286,6 +287,8 @@ void *listenInput(void *args) {
                 params.dX = dR;
                 params.shootY = shootRY;
                 sendUpdate(sfd, role, params);
+                sprintf(log_msg, "client_yPos: %d\n", shootRY);
+                w_log(log_msg, role);
                 break;
             default: break;
 	    }
