@@ -1,5 +1,5 @@
 #include "logging.h"
-#include "pong_helper.h"    //pong fns
+#include "fight_helper.h"    //pong fns
 
 int sendUpdate(int fd, int role, struct game_state params){
     char log_msg[1024];

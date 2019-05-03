@@ -11,7 +11,7 @@
 #include <errno.h>      //errno
 #include <signal.h>     //sigint
 #include "logging.h"
-#include "pong_helper.h"
+#include "fight_helper.h"
 
 #define WIDTH 43
 #define HEIGHT 21
@@ -85,14 +85,14 @@ void draw(int bullRX, int bullRY, int bullLX, int bullLY,  int shootLY, int shoo
     // Left shooter
     pthread_mutex_lock(&shootLY_lock);
     for(y = 1; y < HEIGHT - 1; y++) {
-	int ch = (y >= shootLY - 2 && y <= shootLY + 2)? ACS_BLOCK : ' ';
+	int ch = (y >= shootLY - 1 && y <= shootLY + 1)? ACS_BLOCK : ' ';
         mvwaddch(win, y, LEDGE, ch);
     }
     pthread_mutex_unlock(&shootLY_lock);
     // Right shooter
     pthread_mutex_lock(&shootRY_lock);
     for(y = 1; y < HEIGHT - 1; y++) {
-	int ch = (y >= shootRY - 2 && y <= shootRY + 2)? ACS_BLOCK : ' ';
+	int ch = (y >= shootRY - 1 && y <= shootRY + 1)? ACS_BLOCK : ' ';
         mvwaddch(win, y, REDGE, ch);
     }
     pthread_mutex_unlock(&shootRY_lock);
@@ -155,6 +155,8 @@ void countdown(const char *message) {
     wrefresh(popup);
     delwin(popup);
     shootLY = shootRY = bullLY = bullRY = HEIGHT / 2; // Wipe out any input that accumulated during the delay
+    bullRX = REDGE;
+    bullLX = LEDGE;
 }
 
 /* Perform periodic game functions:
@@ -164,79 +166,84 @@ void countdown(const char *message) {
  * 4. Draw updated game state to the screen
  */
 void tock(int fd, int role) {
-    // Move the left bullet
-    pthread_mutex_lock(&bullL_pos_lock);
-    bullLX += dL;
-    bullLY = shootLY;
-    pthread_mutex_unlock(&bullL_pos_lock);
-    
-    // Move the right bullet
-    pthread_mutex_lock(&bullR_pos_lock);
-    bullRX += dR;
-    bullRY = shootRY;
-    pthread_mutex_unlock(&bullR_pos_lock);
-    
     //send event handler
     struct game_state params;
     char log_msg[1024];
     
     //Role = 0 is the host, on the right side of screen
     if(!role){
-        params.bullX = bullRX;
+    	params.bullX = bullRX;
         params.bullY = bullRY;
         params.dX = dR;
         params.shootY = shootRY;
-        //sprintf(log_msg, "host_yPos: %d\n", shootLY);
-        //w_log(log_msg, role);
+        sprintf(log_msg, "HOST BULLET: (X=%d,Y=%d)", bullRX, bullRY);
+        w_log(log_msg, role);
+
+	pthread_mutex_lock(&bullR_pos_lock);
+	// If our bullet has gone off screen, reload it 
+  	if(bullRX < LEDGE || (bullRX == bullLX && bullRY == bullLY)){
+	  bullRX = REDGE;
+	  dR = 0;
+	}
+	// Move the right bullet
+   	if(dR != 0){
+    	  bullRX += dR;
+	}
+	else{
+    	  bullRY = shootRY;
+        }
+    	pthread_mutex_unlock(&bullR_pos_lock);
+	 
+	if(bullLX == REDGE && abs(bullLY - shootRY) <= 1){
+          scoreL = (scoreL + 1) % 100;
+	  params.shootY = -100;
+          sprintf(log_msg, "%s\n", "client player scored");
+          w_log(log_msg, role);
+          sendUpdate(fd, role, params);
+          reset();
+	  countdown("<-- SCORE");    
+    	}
+
         sendUpdate(fd, role, params);
     }
+
     else if(role){
         params.bullX = bullLX;
         params.bullY = bullLY;
         params.dX = dL;
         params.shootY = shootLY;
-        //sprintf(log_msg, "client_yPos: %d\n", shootRY);
-        //w_log(log_msg, role);
-        sendUpdate(fd, role, params);
-
-    }
-
-
-    //This should pick A side and check if a hit occurred :(
-
-    //Check if right shooter has hit left shooter
-    //pthread_mutex_lock(&bullR_pos_lock);
-    //pthread_mutex_lock(&shootLY_lock);
-    if(bullRX == LEDGE && abs(bullRY - shootLY) <= 2){
-        scoreR = (scoreR + 1) % 100;
-	    params.shootY = -100;
-        sprintf(log_msg, "%s\n", "host player scored");
+        sprintf(log_msg, "CLIENT BULLET: (X=%d,Y=%d)", bullLX, bullLY);
         w_log(log_msg, role);
-        sendUpdate(fd, role, params);
-        reset();
-	    countdown("SCORE -->");
-    }
-    //pthread_mutex_unlock(&bullR_pos_lock);
-    //pthread_mutex_unlock(&shootLY_lock);
-    
-    //Check if right shooter has hit left shooter
-    //pthread_mutex_lock(&bullL_pos_lock);
-    //pthread_mutex_lock(&shootRY_lock);
-    else if(bullLX == REDGE && abs(bullLY - shootRY) <= 2){
-        scoreL = (scoreL + 1) % 100;
-	    params.shootY = -100;
-        sprintf(log_msg, "%s\n", "client player scored");
-        w_log(log_msg, role);
-        sendUpdate(fd, role, params);
-        reset();
-	    countdown("<-- SCORE");
-    
-    }
-    //pthread_mutex_unlock(&bullL_pos_lock);
-    //pthread_mutex_unlock(&shootRY_lock);
-
-    //How do roles impact what's happening up here^^
  
+   	pthread_mutex_lock(&bullL_pos_lock);
+	// If bullet has gone off screen, reload it 
+  	if(bullLX > REDGE || (bullRX == bullLX && bullRY == bullLY)){
+	  bullLX = LEDGE;
+	  dL = 0;
+	}
+	// Move the left bullet
+ 	if(dL != 0){
+	  bullLX += dL;
+	}
+	else{
+	  bullLY = shootLY;
+	} 
+    	pthread_mutex_unlock(&bullL_pos_lock);
+
+	//Check if host has hit client
+     	if(bullRX == LEDGE && abs(bullRY - shootLY) <= 1){
+          scoreR = (scoreR + 1) % 100;
+	  params.shootY = -100;
+          sprintf(log_msg, "%s\n", "host player scored");
+          w_log(log_msg, role);
+          sendUpdate(fd, role, params);
+          reset();
+	  countdown("SCORE -->");
+    	}
+
+       sendUpdate(fd, role, params);
+    }
+
     // Finally, redraw the current state
     draw(bullRX, bullRY, bullLX, bullLY, shootLY, shootRY, scoreL, scoreR);
     //draw(bullRX, bullRY, bullLX, bullLY, shootLY, shootRY, scoreL, scoreR, obstacles);
@@ -280,14 +287,14 @@ void *listenInput(void *args) {
                 break;
             case ' ':
                 pthread_mutex_lock(&bullR_vel_lock);
-                dR = 5;
+                dR = -5;
                 pthread_mutex_unlock(&bullR_vel_lock);
                 params.bullX = bullRX;
                 params.bullY = bullRY;
                 params.dX = dR;
                 params.shootY = shootRY;
                 sendUpdate(sfd, role, params);
-                sprintf(log_msg, "SPACEBAR");
+                sprintf(log_msg, "SPACEBAR (SHOOT!)\n");
                 w_log(log_msg, role);
                 break;
             default: break;
@@ -303,9 +310,9 @@ void *listenInput(void *args) {
                 pthread_mutex_lock(&shootLY_lock);
                 shootLY--;
                 pthread_mutex_unlock(&shootLY_lock);
-	            params.shootY = shootLY;
-			    sendUpdate(sfd, role, params); 
-			    break;
+	        params.shootY = shootLY;
+		sendUpdate(sfd, role, params); 
+	        break;
             case KEY_DOWN: 
                 params.bullX = bullLX;
                 params.bullY = bullLY;
@@ -314,10 +321,22 @@ void *listenInput(void *args) {
                 pthread_mutex_lock(&shootLY_lock);
                 shootLY++;
                 pthread_mutex_unlock(&shootLY_lock);
-	            params.shootY = shootLY;
-			    sendUpdate(sfd, role, params); 
-			    break;
-            default: break;
+	        params.shootY = shootLY;
+		sendUpdate(sfd, role, params); 
+	        break;
+             case ' ':
+                pthread_mutex_lock(&bullL_vel_lock);
+                dL = 5;
+                pthread_mutex_unlock(&bullL_vel_lock);
+                params.bullX = bullLX;
+                params.bullY = bullLY;
+                params.dX = dL;
+                params.shootY = shootLY;
+                sendUpdate(sfd, role, params);
+                sprintf(log_msg, "SPACEBAR (SHOOT!)\n");
+                w_log(log_msg, role);
+                break;
+	     default: break;
 	    }
       }
 	
@@ -345,16 +364,19 @@ void* listenRecv(void *args){
         else if(state.shootY == -100){
             sprintf(log_msg, "%s\n", "I scored!");
             w_log(log_msg, role);
-            if(!role){
+	    if(ptScored == 0){
+              if(!role){
                 ptScored = 1; 
                 scoreR = (scoreR + 1) % 100;
-            }
-            else if(role){
+              }
+              else if(role){
                 ptScored = 1; 
                 scoreL = (scoreL + 1) % 100;
-            }
+              }
+	    }
         }
         else{
+	    ptScored = 0;
             // Client updates if ball on host side
             if(role){
                 // Left side player updating right side's state

@@ -1,5 +1,5 @@
-#ifndef PONG_HELPER_H_
-#define PONG_HELPER_H_ 
+#ifndef FIGHT_HELPER_H_
+#define FIGHT_HELPER_H_ 
 
 #include <ncurses.h>    //get keyboard input
 #include <stdlib.h>
@@ -13,7 +13,6 @@
 #include <netdb.h>      //probs same
 #include <errno.h>      //errno
 #include "logging.h"
-#include "pong_helper.h"    //pong fns
 
 struct listen_args{
     int sock_fd;
