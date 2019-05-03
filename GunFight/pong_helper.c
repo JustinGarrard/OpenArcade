@@ -15,7 +15,7 @@ int sendUpdate(int fd, int role, struct game_state params){
         w_log(log_msg, role);
         ret = -1;
     }
-    sprintf(log_msg, "sent param update-> shootY:%d, bullX:%d, bullY:%d, dX:%d", params.shootY, params.bullX, params.bullY, params.dX);
+    sprintf(log_msg, "sent param update-> shootY:%d, bullX:%d, bullY:%d, dX:%d\n", params.shootY, params.bullX, params.bullY, params.dX);
     w_log(log_msg, role);
     return ret;
 }
