@@ -287,7 +287,7 @@ void *listenInput(void *args) {
                 params.dX = dR;
                 params.shootY = shootRY;
                 sendUpdate(sfd, role, params);
-                sprintf(log_msg, "client_yPos: %d\n", shootRY);
+                sprintf(log_msg, "SPACEBAR");
                 w_log(log_msg, role);
                 break;
             default: break;
