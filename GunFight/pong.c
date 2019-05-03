@@ -277,6 +277,16 @@ void *listenInput(void *args) {
 	            params.shootY = shootRY;
                 sendUpdate(sfd, role, params);
                 break;
+            case ' ':
+                pthread_mutex_lock(&bullR_vel_lock);
+                dR = 5;
+                pthread_mutex_unlock(&bullR_vel_lock);
+                params.bullX = bullRX;
+                params.bullY = bullRY;
+                params.dX = dR;
+                params.shootY = shootRY;
+                sendUpdate(sfd, role, params);
+                break;
             default: break;
 	    }
       }
